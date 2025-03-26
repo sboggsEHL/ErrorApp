@@ -1,54 +1,73 @@
-# React + TypeScript + Vite
+# Error Monitoring Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Real-time error tracking system with integrated property data insights.
 
-Currently, two official plugins are available:
+## Key Features
+- Real-time error monitoring & alerting
+- Advanced error categorization (Server, Database, API)
+- Property data correlation using Mailhaus database
+- Customizable filters and search
+- Data visualization with interactive charts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## Database Integration
+### Properties Table Schema (Mailhaus DB)
+```mermaid
+erDiagram
+    PROPERTIES {
+        integer property_id PK
+        varchar(50) radar_id UK
+        integer provider_id FK
+        varchar(255) property_address
+        varchar(100) property_city
+        varchar(2) property_state
+        varchar(10) property_zip
+        numeric avm
+        numeric available_equity
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    PROPERTIES }o--|| LEAD_PROVIDERS : "provider_id"
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+## Installation & Setup
+```bash
+git clone https://github.com/yourrepo/error-dashboard.git
+cd error-dashboard
+npm install
+cp .env.example .env
 ```
+
+## Configuration
+`.env` requirements:
+```ini
+VITE_API_ENDPOINT=http://localhost:3000
+DB_CONNECTION_STRING=postgres://user:pass@mailhaus-db:5432/mailhaus
+MAX_HISTORY_DAYS=30
+```
+
+## Development
+```bash
+# Start dev server
+npm run dev
+
+# Run tests
+npm test
+
+# Build for production
+npm run build
+```
+
+## Architecture
+```mermaid
+flowchart TD
+    A[Client] --> B[Vite Server]
+    B --> C[Express API]
+    C --> D[Mailhaus Database]
+    C --> E[Error Processing]
+    E --> F[Real-time Updates]
+```
+
+## License
+MIT License
