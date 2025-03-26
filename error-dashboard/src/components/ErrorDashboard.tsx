@@ -78,6 +78,15 @@ const ErrorDashboard = () => {
   const [rootCauses, setRootCauses] = useState<RootCauseData[]>([]);
   const [severityDistribution, setSeverityDistribution] = useState<SeverityData[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  // Drill-down state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedSeverity, setSelectedSeverity] = useState<string | null>(null);
+  const [filteredErrors, setFilteredErrors] = useState<ErrorData[]>([]);
+  const [detailView, setDetailView] = useState<boolean>(false);
+  const [selectedError, setSelectedError] = useState<ErrorData | null>(null);
 
   // Helper function to get color based on category
   const getCategoryColor = (category: string) => {
@@ -101,7 +110,7 @@ const ErrorDashboard = () => {
   useEffect(() => {
     const analyzeErrorData = async () => {
       try {
-        // Fetch and parse CSV data
+        // Fetch and parse CSV data using the full dataset
         const parsedErrors = await fetchCSV('errors_only.csv');
         
         const errors = parsedErrors.data as ErrorData[];
@@ -334,6 +343,71 @@ const ErrorDashboard = () => {
     analyzeErrorData();
   }, []);
 
+  // Filter errors based on selected criteria
+  useEffect(() => {
+    if (!errorData.length) return;
+    
+    let filtered = [...errorData];
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(err => err.category === selectedCategory);
+    }
+    
+    if (selectedTime) {
+      filtered = filtered.filter(err => err.time_key === selectedTime);
+    }
+    
+    if (selectedStatus) {
+      const statusCode = parseInt(selectedStatus.replace('HTTP ', ''));
+      filtered = filtered.filter(err => err.status_code === statusCode);
+    }
+    
+    if (selectedSeverity) {
+      filtered = filtered.filter(err => err.severity === selectedSeverity.toLowerCase());
+    }
+    
+    setFilteredErrors(filtered);
+  }, [errorData, selectedCategory, selectedTime, selectedStatus, selectedSeverity]);
+
+  // Handle selection of different dimensions for drill-down
+  const handleCategoryClick = (category: string) => {
+    setSelectedCategory(category === selectedCategory ? null : category);
+    setDetailView(false);
+    setSelectedError(null);
+  };
+  
+  const handleTimeClick = (time: string) => {
+    setSelectedTime(time === selectedTime ? null : time);
+    setDetailView(false);
+    setSelectedError(null);
+  };
+  
+  const handleStatusClick = (status: string) => {
+    setSelectedStatus(status === selectedStatus ? null : status);
+    setDetailView(false);
+    setSelectedError(null);
+  };
+  
+  const handleSeverityClick = (severity: string) => {
+    setSelectedSeverity(severity === selectedSeverity ? null : severity);
+    setDetailView(false);
+    setSelectedError(null);
+  };
+  
+  const handleErrorClick = (error: ErrorData) => {
+    setSelectedError(error);
+    setDetailView(true);
+  };
+  
+  const handleResetFilters = () => {
+    setSelectedCategory(null);
+    setSelectedTime(null);
+    setSelectedStatus(null);
+    setSelectedSeverity(null);
+    setDetailView(false);
+    setSelectedError(null);
+  };
+
   const renderEventIcon = (type: string) => {
     switch(type) {
       case 'info':
@@ -358,6 +432,200 @@ const ErrorDashboard = () => {
     );
   }
 
+  // Render a detailed error view
+  const renderErrorDetail = () => {
+    if (!selectedError) return null;
+    
+    const formatValue = (key: string, value: any) => {
+      if (key === 'details_json' && value) {
+        try {
+          return <pre>{JSON.stringify(JSON.parse(value), null, 2)}</pre>;
+        } catch {
+          return value;
+        }
+      }
+      
+      if (value === null || value === undefined) {
+        return <span className="text-gray-400">null</span>;
+      }
+      
+      if (typeof value === 'object') {
+        return <pre>{JSON.stringify(value, null, 2)}</pre>;
+      }
+      
+      return value.toString();
+    };
+    
+    return (
+      <div className="card">
+        <div className="flex justify-between mb-4">
+          <h2>Error Details</h2>
+          <button 
+            className="px-3 py-1 bg-gray-200 rounded text-sm font-medium"
+            onClick={() => setDetailView(false)}
+          >
+            Back to List
+          </button>
+        </div>
+        
+        <div className="mb-4">
+          <div className="error-example">
+            <div className="error-example-header">Error Message</div>
+            <div className="error-example-body">
+              <p className="font-medium">{selectedError.error_message || 'No error message'}</p>
+              {selectedError.full_log && (
+                <pre className="mt-2 text-sm">{selectedError.full_log}</pre>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h3 className="text-md font-medium mb-2">Basic Information</h3>
+            <table className="w-full">
+              <tbody>
+                <tr>
+                  <td className="py-1 pr-2 text-sm font-medium text-gray-500">Time</td>
+                  <td className="py-1 text-sm">{selectedError.timestamp?.replace('T', ' ').substring(0, 19) || 'Unknown'}</td>
+                </tr>
+                <tr>
+                  <td className="py-1 pr-2 text-sm font-medium text-gray-500">Category</td>
+                  <td className="py-1 text-sm">
+                    <span 
+                      className="px-2 py-1 rounded text-xs font-medium"
+                      style={{ backgroundColor: getCategoryColor(selectedError.category || ''), color: 'white' }}
+                    >
+                      {selectedError.category || 'Unknown'}
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-1 pr-2 text-sm font-medium text-gray-500">Severity</td>
+                  <td className="py-1 text-sm">
+                    <span 
+                      className="px-2 py-1 rounded text-xs font-medium"
+                      style={{ 
+                        backgroundColor: selectedError.severity === 'error' ? '#ff6b6b' : 
+                                         selectedError.severity === 'warning' ? '#feca57' : '#54a0ff',
+                        color: 'white'
+                      }}
+                    >
+                      {selectedError.severity || 'Unknown'}
+                    </span>
+                  </td>
+                </tr>
+                {selectedError.status_code && (
+                  <tr>
+                    <td className="py-1 pr-2 text-sm font-medium text-gray-500">Status Code</td>
+                    <td className="py-1 text-sm">
+                      <span 
+                        className="px-2 py-1 rounded text-xs font-medium"
+                        style={{ 
+                          backgroundColor: getStatusColor(selectedError.status_code),
+                          color: 'white'
+                        }}
+                      >
+                        HTTP {selectedError.status_code}
+                      </span>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          <div>
+            <h3 className="text-md font-medium mb-2">Additional Properties</h3>
+            <div className="overflow-auto max-h-40">
+              <table className="w-full">
+                <tbody>
+                  {Object.entries(selectedError)
+                    .filter(([key]) => !['timestamp', 'time_key', 'severity', 'category', 'error_message', 'full_log', 'status_code', 'id'].includes(key))
+                    .map(([key, value]) => (
+                      <tr key={key}>
+                        <td className="py-1 pr-2 text-sm font-medium text-gray-500">{key}</td>
+                        <td className="py-1 text-sm">{formatValue(key, value)}</td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  // Render filtered error list 
+  const renderFilteredErrors = () => {
+    if (filteredErrors.length === 0) {
+      return (
+        <div className="text-center p-4">
+          <p>No errors match the selected filters</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="overflow-auto max-h-96">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Severity</th>
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredErrors.slice(0, 100).map((error, index) => (
+              <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <td className="px-3 py-2 text-sm">{error.timestamp?.replace('T', ' ').substring(0, 19) || 'Unknown'}</td>
+                <td className="px-3 py-2">
+                  <span 
+                    className="px-2 py-1 rounded text-xs font-medium"
+                    style={{ backgroundColor: getCategoryColor(error.category || ''), color: 'white' }}
+                  >
+                    {error.category || 'Unknown'}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <span 
+                    className="px-2 py-1 rounded text-xs font-medium"
+                    style={{ 
+                      backgroundColor: error.severity === 'error' ? '#ff6b6b' : 
+                                       error.severity === 'warning' ? '#feca57' : '#54a0ff',
+                      color: 'white'
+                    }}
+                  >
+                    {error.severity || 'Unknown'}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-sm truncate max-w-xs">{error.error_message || 'No message'}</td>
+                <td className="px-3 py-2 text-sm">
+                  <button
+                    className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200"
+                    onClick={() => handleErrorClick(error)}
+                  >
+                    View Details
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filteredErrors.length > 100 && (
+          <div className="text-center p-2 text-sm text-gray-500">
+            Showing 100 of {filteredErrors.length} errors
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="dashboard-container">
       <header className="dashboard-header">
@@ -374,6 +642,70 @@ const ErrorDashboard = () => {
           <p>System crash occurred with {errorData.length} error events detected</p>
         </div>
       </div>
+      
+      {/* Active filters */}
+      {(selectedCategory || selectedTime || selectedStatus || selectedSeverity) && (
+        <div className="my-4 p-3 bg-blue-50 border border-blue-200 rounded">
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2 flex-wrap">
+              <span className="font-medium text-blue-700">Active Filters:</span>
+              
+              {selectedCategory && (
+                <span 
+                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium flex items-center cursor-pointer"
+                  onClick={() => setSelectedCategory(null)}
+                >
+                  Category: {selectedCategory}
+                  <span className="ml-1">×</span>
+                </span>
+              )}
+              
+              {selectedTime && (
+                <span 
+                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium flex items-center cursor-pointer"
+                  onClick={() => setSelectedTime(null)}
+                >
+                  Time: {selectedTime}
+                  <span className="ml-1">×</span>
+                </span>
+              )}
+              
+              {selectedStatus && (
+                <span 
+                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium flex items-center cursor-pointer"
+                  onClick={() => setSelectedStatus(null)}
+                >
+                  Status: {selectedStatus}
+                  <span className="ml-1">×</span>
+                </span>
+              )}
+              
+              {selectedSeverity && (
+                <span 
+                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium flex items-center cursor-pointer"
+                  onClick={() => setSelectedSeverity(null)}
+                >
+                  Severity: {selectedSeverity}
+                  <span className="ml-1">×</span>
+                </span>
+              )}
+            </div>
+            
+            <button
+              className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200"
+              onClick={handleResetFilters}
+            >
+              Clear All
+            </button>
+          </div>
+          
+          <div className="mt-2">
+            <p className="text-sm text-blue-700">
+              Found {filteredErrors.length} errors matching your criteria
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="tabs">
         <button 
@@ -402,24 +734,44 @@ const ErrorDashboard = () => {
         </button>
       </div>
 
-      {activeTab === 'summary' && (
+      {/* Display detailed view or the main dashboard */}
+      {detailView && selectedError ? (
+        renderErrorDetail()
+      ) : (selectedCategory || selectedTime || selectedStatus || selectedSeverity) ? (
+        <div className="card">
+          <div className="flex justify-between mb-4">
+            <h2>Filtered Errors</h2>
+          </div>
+          {renderFilteredErrors()}
+        </div>
+      ) : activeTab === 'summary' && (
         <div className="grid grid-2">
           <div className="card">
             <h2>Error Categories</h2>
             <div className="chart-container">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={errorsByCategory}>
+                <BarChart 
+                  data={errorsByCategory}
+                  onClick={(data) => {
+                    if (data && data.activePayload && data.activePayload.length > 0) {
+                      handleCategoryClick(data.activePayload[0].payload.name);
+                    }
+                  }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#8884d8">
+                  <Bar dataKey="count" fill="#8884d8" cursor="pointer">
                     {errorsByCategory.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+            <div className="mt-3 text-sm text-center text-gray-600">
+              Click on any category bar to drill down into errors of that type
             </div>
           </div>
 
@@ -437,6 +789,8 @@ const ErrorDashboard = () => {
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="count"
+                    onClick={(data) => handleSeverityClick(data.name)}
+                    cursor="pointer"
                   >
                     {(severityDistribution || []).map((entry: SeverityData, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -445,6 +799,9 @@ const ErrorDashboard = () => {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+            <div className="mt-3 text-sm text-center text-gray-600">
+              Click on any segment to filter by severity
             </div>
           </div>
 
@@ -515,13 +872,21 @@ const ErrorDashboard = () => {
             <div className="timeline">
               <div className="timeline-line"></div>
               {criticalEvents.map((event, index) => (
-                <div key={index} className="timeline-item">
+                <div 
+                  key={index} 
+                  className="timeline-item"
+                  onClick={() => handleTimeClick(event.time)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className={`timeline-icon ${event.type}`}>{renderEventIcon(event.type)}</div>
                   <div className="timeline-time">{event.time}</div>
                   <div className={`timeline-title ${event.type}`}>{event.event}</div>
                   <div className="timeline-details">{event.details}</div>
                 </div>
               ))}
+            </div>
+            <div className="mt-3 text-sm text-center text-gray-600">
+              Click on any timeline event to see errors from that specific time
             </div>
           </div>
             
@@ -537,18 +902,26 @@ const ErrorDashboard = () => {
                     left: 20,
                     bottom: 5,
                   }}
+                  onClick={(data) => {
+                    if (data && data.activePayload && data.activePayload.length > 0) {
+                      handleTimeClick(data.activePayload[0].payload.time);
+                    }
+                  }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="time" />
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="errors" name="Errors" fill="#ff6b6b" />
-                  <Bar dataKey="warnings" name="Warnings" fill="#feca57" />
-                  <Bar dataKey="participant_errors" name="Participant Errors" fill="#ff9f43" />
-                  <Bar dataKey="call_errors" name="Call Errors" fill="#5f27cd" />
+                  <Bar dataKey="errors" name="Errors" fill="#ff6b6b" cursor="pointer" />
+                  <Bar dataKey="warnings" name="Warnings" fill="#feca57" cursor="pointer" />
+                  <Bar dataKey="participant_errors" name="Participant Errors" fill="#ff9f43" cursor="pointer" />
+                  <Bar dataKey="call_errors" name="Call Errors" fill="#5f27cd" cursor="pointer" />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+            <div className="mt-3 text-sm text-center text-gray-600">
+              Click on any bar to filter errors from that time period
             </div>
           </div>
         </div>
@@ -570,6 +943,8 @@ const ErrorDashboard = () => {
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="count"
+                    onClick={(data) => handleStatusClick(data.name)}
+                    cursor="pointer"
                   >
                     {errorsByStatus.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -578,6 +953,9 @@ const ErrorDashboard = () => {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+            <div className="mt-3 text-sm text-center text-gray-600">
+              Click on any status code to filter errors with that HTTP status
             </div>
           </div>
 
@@ -594,18 +972,26 @@ const ErrorDashboard = () => {
                     left: 60,
                     bottom: 5,
                   }}
+                  onClick={(data) => {
+                    if (data && data.activePayload && data.activePayload.length > 0) {
+                      handleCategoryClick(data.activePayload[0].payload.name);
+                    }
+                  }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" />
                   <YAxis dataKey="name" type="category" />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#8884d8">
+                  <Bar dataKey="count" fill="#8884d8" cursor="pointer">
                     {errorsByCategory.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+            <div className="mt-3 text-sm text-center text-gray-600">
+              Click on any category to see errors of that specific type
             </div>
           </div>
 
