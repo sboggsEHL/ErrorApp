@@ -1,0 +1,98 @@
+# Error Dashboard Project Rules and Patterns
+
+## CSS and Styling Guidelines
+
+1. **Tailwind Utility Classes**
+   - Prefer using basic Tailwind utility classes for simple styling
+   - For complex styling or when facing Tailwind conflicts, use direct CSS with CSS variables
+   - Avoid combining border utilities like `border-border` - use `border` with explicit CSS border-color values
+
+2. **Theme Variables**
+   - Use CSS variables from the theme system for colors (e.g., `hsl(var(--primary))`) 
+   - Reference the theme-hue variable for creating color variations
+
+3. **Component Styling**
+   - Use class-based styling rather than inline styles
+   - Card components should follow consistent padding and rounded corner patterns
+   - Maintain proper spacing between UI elements (consistent margins/padding)
+
+## Component Patterns
+
+1. **File Organization**
+   - Group components by their function (charts, data-display, layout, ui, tabs)
+   - Each component should be in its own file
+   - Follow the established naming convention (PascalCase for components)
+
+2. **Component Communication**
+   - Pass handler functions down from parent components
+   - Use explicit prop types for all components
+   - Minimize prop drilling by keeping state at appropriate levels
+
+3. **Conditional Rendering**
+   - Use ternary expressions for simple conditional rendering
+   - Use separate return statements for more complex conditional rendering
+   - Avoid unnecessary wrapper divs
+
+## State Management
+
+1. **State Organization**
+   - Keep filter state in the main ErrorDashboard component
+   - Use useState for component-local state
+   - Prefer multiple specific state variables over large state objects
+
+2. **Theme State**
+   - Use the ThemeProvider context for theme-related state
+   - Access theme colors via useThemeColors hook
+
+## Data Handling
+
+1. **Error Data Processing**
+   - Process and transform data before passing to visualization components
+   - Use utility functions from utils/ directory for data operations
+   - Filter operations should go through the filterErrors utility
+
+2. **API Integration (Future)**
+   - Plan to refactor data fetching into custom hooks
+   - Prepare for API error handling from the beginning
+   - Implement loading states for all async operations
+
+## Code Style
+
+1. **TypeScript Usage**
+   - Use explicit types for all props, state, and function returns
+   - Define interfaces in the types/ directory
+   - Use type imports with the established path alias pattern (@/types)
+
+2. **Function Organization**
+   - Place event handlers after state declarations
+   - Group related functions together
+   - Add JSDoc comments for complex functions
+
+3. **Import Order**
+   - React and libraries first
+   - Types and interfaces
+   - Utility functions and hooks
+   - Components
+
+## Project Workflow
+
+1. **Current Development Focus**
+   - Fix styling issues before adding new features
+   - Prioritize component refactoring for maintainability
+   - Prepare for API integration
+
+2. **Testing Strategy (Future)**
+   - Plan to add unit tests for utility functions
+   - Add component tests for complex interactive components
+   - Mock API responses for testing data flow
+
+## Performance Considerations
+
+1. **Rendering Optimization**
+   - Be mindful of unnecessary re-renders with large datasets
+   - Use memoization for expensive calculations
+   - Consider virtualization for long lists
+
+2. **Chart Performance**
+   - Limit the number of data points in charts for better performance
+   - Use appropriate chart types for the data being displayed

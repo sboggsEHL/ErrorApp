@@ -1,11 +1,15 @@
 import ErrorDashboard from './components/ErrorDashboard';
+import { ThemeProvider } from './context/ThemeProvider';
 import './App.css';
+import './index.css';
 
 function App() {
   return (
-    <div className="App">
-      <ErrorDashboard />
-    </div>
+    <ThemeProvider>
+      <div className="App">
+        <ErrorDashboard />
+      </div>
+    </ThemeProvider>
   );
 }
 
